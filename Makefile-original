@@ -41,10 +41,10 @@ ifeq ("$(NCLD)","")
 NCCC:=
 NCLD:=-lncursesw
 endif
- 
-MYCFLAGS:=$(CPPFLAGS) $(CFLAGS) $(NCCC) -std=gnu90 -Wall -Wextra -Wl,--as-needed -lrt
+
+MYCFLAGS:=$(CPPFLAGS) $(CFLAGS) $(NCCC) -std=gnu90 -Wall -Wextra -fPIE -Wl,--as-needed -lrt 
 MYLIBS=$(LIBS) $(NCLD) -ltinfo
-MYLDFLAGS=$(LDFLAGS) -O3 -lrt
+MYLDFLAGS=$(LDFLAGS) -fPIE -pie -lrt
 STRIP?=strip
 
 PREFIX?=$(DESTDIR)/usr

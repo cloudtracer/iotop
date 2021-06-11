@@ -23,11 +23,11 @@ OBJS:=$(patsubst %c,%o,$(patsubst src/%,bld/%,$(SRCS)))
 DEPS:=$(OBJS:.o=.d)
 
 ifndef NO_FLTO
-CFLAGS?=-O3 -fno-stack-protector -mno-stackrealign
+CFLAGS?=-g -pg -O0 -fno-stack-protector -mno-stackrealign
 CFLAGS+=-flto
 LDFLAGS+=$(CFLAGS)
 else
-CFLAGS?=-O3 -fno-stack-protector -mno-stackrealign
+CFLAGS?=-g -pg -O0 -fno-stack-protector -mno-stackrealign
 endif
 
 PKG_CONFIG?=pkg-config
@@ -44,7 +44,7 @@ endif
  
 MYCFLAGS:=$(CPPFLAGS) $(CFLAGS) $(NCCC) -std=gnu90 -Wall -Wextra -Wl,--as-needed -lrt
 MYLIBS=$(LIBS) $(NCLD) -ltinfo
-MYLDFLAGS=$(LDFLAGS) -O3 -lrt
+MYLDFLAGS=$(LDFLAGS) -g -pg -O0 -lrt
 STRIP?=strip
 
 PREFIX?=$(DESTDIR)/usr

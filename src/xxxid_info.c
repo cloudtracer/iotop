@@ -181,10 +181,23 @@ inline int nl_xxxid_info(pid_t tid,pid_t pid,struct xxxid_stats *stats) {
 					#define COPY(field) { stats->field = ts->field; }
 					COPY(read_bytes);
 					COPY(write_bytes);
+					COPY(ac_ppid);					
 					COPY(swapin_delay_total);
 					COPY(blkio_delay_total);
+					COPY(cancelled_write_bytes);
+					COPY(ac_utime);
+					COPY(ac_stime);
+					COPY(ac_majflt);
+					COPY(coremem);
+					COPY(hiwater_rss);
+					COPY(freepages_delay_total);
+					COPY(ac_btime);
+					COPY(ac_etime);
+					COPY(cpu_delay_total);
+					COPY(ac_etime);
 					#undef COPY
 					stats->euid=ts->ac_uid;
+					stats->cmdline1=strdup(ts->ac_comm);
 				}
 				len2+=NLA_ALIGN(na->nla_len);
 				na=(struct nlattr *)((char *)na+len2);
@@ -193,7 +206,8 @@ inline int nl_xxxid_info(pid_t tid,pid_t pid,struct xxxid_stats *stats) {
 		na=(struct nlattr *)((char *)GENLMSG_DATA(&msg)+len);
 	}
 
-	stats->io_prio=get_ioprio(tid);
+	// maybe comment out?
+	stats->io_prio=0;
 
 	return 0;
 }
@@ -216,8 +230,8 @@ inline void free_stats(struct xxxid_stats *s) {
 }
 
 inline struct xxxid_stats *make_stats(pid_t tid,pid_t pid) {
-	struct xxxid_stats *s=calloc(1,sizeof *s);
-	static const char unknown[]="<unknown>";
+	struct xxxid_stats *s = calloc(1,sizeof *s);
+	//static const char unknown[]="<unknown>";
 	struct passwd *pwd;
 	char *cmdline1;
 	char *cmdline2;
@@ -228,13 +242,23 @@ inline struct xxxid_stats *make_stats(pid_t tid,pid_t pid) {
 	if (nl_xxxid_info(tid,pid,s))
 		goto error;
 
-	cmdline1=read_cmdline(tid,1);
-	cmdline2=read_cmdline(tid,0);
+	//if(s->pid != s->tid) {
+	//	free_stats(s);
+	//	return NULL;
+	//}
+	//struct xxxid_stats *ps=calloc(1,sizeof *s);
+	//ps = s;
+	//find_cmd_and_ppid(pid, s);
+	//cmdline1=read_cmdline(pid,);
+	//cmdline2=read_cmdline(pid,0);
 
-	s->cmdline1=cmdline1?cmdline1:strdup(unknown);
-	s->cmdline2=cmdline2?cmdline2:strdup(unknown);
-	pwd=getpwuid(s->euid);
-	s->pw_name=strdup(pwd&&pwd->pw_name?pwd->pw_name:unknown);
+	//s->cmdline1=cmdline1?cmdline1:strdup(unknown);
+	//s->cmdline2=s->cmdline1?s->cmdline1:strdup(unknown);
+	
+	//s->cmdline1=strdup(unknown);
+	//s->cmdline2=strdup(unknown);
+	//pwd=getpwuid(s->euid);
+	//s->pw_name=strdup(pwd&&pwd->pw_name?pwd->pw_name:unknown);
 
 	return s;
 
@@ -243,41 +267,94 @@ error:
 	return NULL;
 }
 
-static void pid_cb(pid_t pid,pid_t tid,struct xxxid_stats_arr *a,filter_callback filter) {
+static void pid_cb(pid_t pid,pid_t tid,struct xxxid_stats_arr *a,filter_callback filter, struct xxxid_stats** tp) {
 	struct xxxid_stats *s=make_stats(tid,pid);
-
+	int count =0;
+	struct xxxid_stats *p = NULL;
+	struct xxxid_stats *ta; 
 	if (s) {
-		if (filter&&filter(s))
-			free_stats(s);
-		else {
-			if (s->pid!=s->tid) { // maintain a thread list for each process
-				struct xxxid_stats *p=arr_find(a,s->pid); // main process' tid=thread's pid
-
+		//if (filter&&filter(s))
+			//free_stats(s);
+		//else {
+			//ta = *a;
+			//printf("found tp \n");
+			if(*tp) {
+				//printf("found tp \n");
+				p = *tp;
+				//printf("p assigned to tp: %i \n", p->pid);
+			}
+			if (pid!=tid) { // maintain a thread list for each process	
+				// cs and ps are sorted so, shouldn't need to use arr_find			
+				if(p && p->pid != s->pid) {
+					printf("PIDs not equal: s->tid=%i s->pid=%i - p->pid=%i - %i\n", s->tid, s->pid, p->pid, count);
+					p=arr_find(a,s->pid); // main process' tid=thread's pid
+					//printf("found p");
+					*tp = p;
+				} else {
+					//arr_add(a,s);
+					*tp = s;
+					//return;
+				}
+				//if(s->pid == 5712) printf("PIDs not equal: s->tid=%i s->pid=%i - p->pid=%i - %i\n", s->tid, s->pid, p->pid, count);
+				//p=arr_find(a,s->pid);
+				//printf("check p");
+				//arr_add(a,s);
 				if (p) {
+					//printf("in p");
 					// aggregate thread data into the main process
-					if (!p->threads)
-						p->threads=arr_alloc();
-					if (p->threads) {
-						arr_add(p->threads,s);
+					//if (!p->threads)
+						//p->threads=arr_alloc();
+					//if (p->threads) {
+						//arr_add(p->threads,s);
 						p->swapin_delay_total+=s->swapin_delay_total;
 						p->blkio_delay_total+=s->blkio_delay_total;
 						p->read_bytes+=s->read_bytes;
 						p->write_bytes+=s->write_bytes;
-					}
+						p->cancelled_write_bytes+=s->cancelled_write_bytes;
+						
+						if(s->ac_utime)
+							p->ac_utime+=s->ac_utime;
+						if(s->ac_stime)
+							p->ac_stime+=s->ac_stime;
+						if(s->cpu_delay_total){
+							p->cpu_delay_total+=s->cpu_delay_total;
+						}
+						p->ac_majflt+=s->ac_majflt;
+						//if(s->pid == 5712) printf("PIsDs not equal: s->tid=%i s->pid=%i - p->pid=%i - %i - %i\n", s->tid, s->pid, p->pid, count, p->ac_utime);
+					//} else {
+					//	arr_add(a,s);
+					//	*tp = s;
+					//}
 				}
-			}
-			arr_add(a,s);
-		}
+			}	else {
+				arr_add(a,s);
+				*tp = s;
+				//printf("assign tp \n");
+				p = *tp;
+				//printf("tp is %i \n", p->pid);
+			}		
+		//}
 	}
 }
 
 inline struct xxxid_stats_arr *fetch_data(filter_callback filter) {
 	struct xxxid_stats_arr *a=arr_alloc();
+	struct xxxid_stats *p=calloc(1,sizeof *p);
 
 	if (!a)
 		return NULL;
 
-	pidgen_cb((pg_cb)pid_cb,a,filter);
+	pidgen_cb((pg_cb)pid_cb,a,filter, p);
+	return a;
+}
+
+inline struct xxxid_stats_arr *fetch_batch_data(struct xxxid_stats** p) {
+	struct xxxid_stats_arr *a=arr_alloc();
+	
+	if (!a)
+		return NULL;
+
+	pidgen_cb((pg_cb)pid_cb,a,NULL, p);
 	return a;
 }
 

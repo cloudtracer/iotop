@@ -59,6 +59,7 @@ typedef struct {
 	int iter;
 	int delay;
 	int pid;
+	long samplerate;
 	int user_id;
 } params_t;
 
@@ -80,17 +81,62 @@ struct xxxid_stats_arr {
 struct xxxid_stats {
 	pid_t pid;
 	pid_t tid;
+	pid_t ac_ppid;
 	uint64_t swapin_delay_total; // nanoseconds
 	uint64_t blkio_delay_total; // nanoseconds
+	uint64_t freepages_delay_total;
 	uint64_t read_bytes;
 	uint64_t write_bytes;
+	uint64_t cancelled_write_bytes;
+	uint64_t ac_utime;
+	uint64_t ac_stime;
+	uint64_t ac_majflt;
+	uint64_t coremem;
+	uint64_t ac_etime; //usec
+	uint64_t cpu_delay_total;
+	uint64_t cpu_run_real_total;
+	uint64_t cpu_run_virtual_total;
+
 
 	double blkio_val;
 	double swapin_val;
+	double freepages_val;
 	double read_val;
 	double write_val;
 	double read_val_acc;
 	double write_val_acc;
+	double cancelled_write_bytes_val;
+	double cancelled_write_bytes_val_acc;
+
+	double cpu_delay_total_val;
+	double cpu_delay_total_val_acc;
+
+	uint64_t cpu_run_real_total_val;
+	uint64_t cpu_run_virtual_total_val;
+
+	uint64_t cpu_run_real_total_val_acc;
+	uint64_t cpu_run_virtual_total_val_acc;
+
+	double ac_utime_val;
+	double ac_stime_val;
+
+	uint64_t ac_utime_val_acc;
+	uint64_t ac_stime_val_acc;
+	uint64_t ac_majflt_total;
+
+	uint64_t ac_btime; //uint 32?
+
+	uint64_t hiwater_rss;
+
+	double time_s_acc;
+	/*
+	double ac_utime_total;
+	double ac_stime_total;
+	double ac_majflt_total;
+	*/
+
+	double coremem_val;
+	double coremem_val_acc;
 
 	int io_prio;
 
@@ -98,6 +144,9 @@ struct xxxid_stats {
 	char *cmdline1;
 	char *cmdline2;
 	char *pw_name;
+
+	int diffs;
+	int samples;
 
 	uint8_t iohist[HISTORY_CNT];
 	int exited; // exited>0 shows for how many refresh cycles the process is gone
@@ -116,8 +165,22 @@ struct act_stats {
 	uint64_t write_bytes;
 	uint64_t read_bytes_o;
 	uint64_t write_bytes_o;
+	uint64_t cancelled_write_bytes;
+	uint64_t cancelled_write_bytes_o;
+
+	uint64_t ac_utime;
+	uint64_t ac_stime;
+	uint64_t ac_majflt;
+	uint64_t coremem;
+
+	uint64_t ac_utime_o;
+	uint64_t ac_stime_o;
+	uint64_t ac_majflt_o;
+	uint64_t coremem_o;
+
 	uint64_t ts_c;
 	uint64_t ts_o;
+	uint64_t ts_r;
 	uint8_t have_o;
 };
 
@@ -130,6 +193,7 @@ typedef int (*filter_callback)(struct xxxid_stats *);
 typedef int (*filter_callback_w)(struct xxxid_stats *,int width);
 
 inline struct xxxid_stats_arr *fetch_data(filter_callback);
+inline struct xxxid_stats_arr *fetch_batch_data(struct xxxid_stats **p) ;
 inline void free_stats(struct xxxid_stats *s);
 
 typedef void (*view_loop)(void);
@@ -149,13 +213,14 @@ inline unsigned int curses_sleep(unsigned int seconds);
 /* utils.c */
 
 inline char *read_cmdline(int pid,int isshort);
+void find_cmd_and_ppid(int pid, struct xxxid_stats *s);
 
 inline int64_t monotime(void);
 inline char *u8strpadt(const char *s,ssize_t len);
 inline char *esc_low_ascii(char *p);
 
-typedef void (*pg_cb)(pid_t pid,pid_t tid,void *hint1,void *hint2);
-inline void pidgen_cb(pg_cb cb,void *hint1,void *hint2);
+typedef void (*pg_cb)(pid_t pid,pid_t tid,void *hint1,void *hint2, void *p);
+inline void pidgen_cb(pg_cb cb,void *hint1,void *hint2, void *p);
 
 /* ioprio.c */
 
@@ -225,9 +290,16 @@ inline void calc_total(struct xxxid_stats_arr *cs,double *read,double *write);
 inline void calc_a_total(struct act_stats *act,double *read,double *write,double time_s);
 inline void humanize_val(double *value,char *str,int allow_accum);
 inline int iotop_sort_cb(const void *a,const void *b);
+int create_quick_diff(struct xxxid_stats_arr *cs,struct xxxid_stats_arr *ps,double time_s,filter_callback_w cb,int width,int *cnt, int flush, int *new_pids, int *untracked, int *ppid_miss); 
+void copy_old_processes(struct xxxid_stats_arr *cs,struct xxxid_stats_arr *ps, int flush, int *untracked);
+void perform_delta_accounting(struct xxxid_stats *c, struct xxxid_stats *p, double time_s);
+void initialize_pid_values(struct xxxid_stats *p, int first_seen);
+void zero_pid_values(struct xxxid_stats *p);
 inline int create_diff(struct xxxid_stats_arr *cs,struct xxxid_stats_arr *ps,double time_s,filter_callback_w cb,int width,int *cnt);
+inline void reset_pid(struct xxxid_stats *cs);
 inline int value2scale(double val,double mx);
 inline int filter1(struct xxxid_stats *s);
+struct tm* GetTimeAndDate(unsigned long long milliseconds);
 
 #ifndef KEY_CTRL_L
 #define KEY_CTRL_L 014

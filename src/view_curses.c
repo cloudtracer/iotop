@@ -795,10 +795,10 @@ donedraw:
 		if (params.user_id<0)
 			printw("none");
 		else {
-			struct passwd *pwd;
+			//struct passwd *pwd;
 
-			pwd=getpwuid(params.user_id);
-			printw("%d [%s]",params.user_id,pwd&&pwd->pw_name?pwd->pw_name:"n/a");
+			//pwd=getpwuid(params.user_id);
+			//printw("%d [%s]",params.user_id,pwd&&pwd->pw_name?pwd->pw_name:"n/a");
 		}
 		attroff(A_BOLD);
 		printw(" Change to: ");
@@ -809,10 +809,10 @@ donedraw:
 			show=TRUE;
 		}
 		if (strlen(filter_uid)&&strcmp(filter_uid,"none")) {
-			struct passwd *pwd;
+			//struct passwd *pwd;
 
-			pwd=getpwuid(atoi(filter_uid));
-			printw(" [%s]",pwd&&pwd->pw_name?pwd->pw_name:"n/a");
+			//pwd=getpwuid(atoi(filter_uid));
+			//printw(" [%s]",pwd&&pwd->pw_name?pwd->pw_name:"n/a");
 		}
 		attroff(A_BOLD);
 
@@ -1268,6 +1268,7 @@ inline void view_curses_loop(void) {
 	uint64_t bef=0;
 	int refresh=0;
 	int k=ERR;
+	struct xxxid_stats *p=calloc(1,sizeof *p);
 
 	for (;;) {
 		uint64_t now=monotime();

@@ -24,101 +24,41 @@ You should have received a copy of the GNU General Public License along with thi
 #include <sys/stat.h>
 #include <sys/types.h>
 
-inline char *read_cmdline(int pid,int isshort) {
+void find_cmd_and_ppid(int pid, struct xxxid_stats *s) {
+	static const char unknown[]="<unknown>";
 	char *rv=NULL;
 	char path[30];
 	int fd;
+	int gc;
+	int ppid;
+	char str2[1];
+	char str1[50];
+	//char str3[60];
 
-	snprintf(path,sizeof path,"/proc/%d/cmdline",pid);
-	fd=open(path,O_RDONLY);
-	if (fd!=-1) {
-		char *dbuf=malloc(BUFSIZ+1);
-		ssize_t n,p=0,sz=BUFSIZ;
-
-		if (!dbuf) {
-			close(fd);
-			return NULL;
-		}
-
-		do {
-			n=read(fd,dbuf+p,sz-p);
-			if (n==sz-p) {
-				char *t=realloc(dbuf,sz+BUFSIZ+1);
-
-				if (!t) {
-					close(fd);
-					free(dbuf);
-					return NULL;
-				}
-				dbuf=t;
-				sz+=BUFSIZ;
-			}
-			if (n>0)
-				p+=n;
-		} while (n>0);
-
-		if (p>0) {
-			dbuf[p]=0;
-			if (isshort&&(dbuf[0]=='/'||(p>1&&dbuf[0]=='.'&&dbuf[1]=='/')||(p>2&&dbuf[0]=='.'&&dbuf[1]=='.'&&dbuf[2]=='/'))) {
-				char *ep;
-
-				ep=strrchr(dbuf,'/');
-				if (ep&&ep[1]) {
-					char *t=strdup(ep+1);
-
-					if (t) {
-						free(dbuf);
-						dbuf=t;
-						p=strlen(t)+1;
-					}
-				}
-			}
-
-			if (!isshort) {
-				ssize_t k;
-
-				for (k=0;k<p;k++)
-					dbuf[k]=dbuf[k]?dbuf[k]:' ';
-			}
-			rv=dbuf;
-		} else
-			free(dbuf);
-		close(fd);
-	}
-
-	if (rv)
-		return rv;
-
-	snprintf(path,sizeof path,"/proc/%d/status",pid);
+	//str1 = malloc(10);
+	snprintf(path,sizeof path,"/proc/%d/stat",pid);
 	fd=open(path,O_RDONLY);
 	if (fd!=-1) {
 		char buf[BUFSIZ+1];
 		ssize_t n=read(fd,buf,BUFSIZ);
 
 		close(fd);
-
-		if (n>0) {
-			char *eol,*tab;
-
-			buf[n]=0;
-			eol=strchr(buf,'\n');
-			tab=strchr(buf,'\t');
-			if (eol&&tab&&eol>tab) {
-				size_t rvlen;
-
-				eol[0]=0;
-				rvlen=strlen(tab+1)+3;
-				rv=malloc(rvlen);
-				if (rv)
-					snprintf(rv,rvlen,!isshort?"[%s]":"%s",tab+1);
-			}
-		}
+		sscanf(buf, "%i %50s %1s %i", &gc, str1, str2, &ppid);
+		//printf("Converted %i fields:str1 = %s\n", ppid, str1);
+		//sprintf(str3,"%s - %i",str1, ppid);
+		s->cmdline1 = strdup(str1);
+		s->cmdline2 =  strdup(str1);
+		//s->ppid = (pid_t) ppid;
+		//printf("Converted2 %i fields:str1 = %s\n", s->ppid, s->cmdline1);
+		
+	} else {
+		s->cmdline1 =  strdup(unknown);
+		s->cmdline2 =  strdup(unknown);
 	}
 
-	return rv;
 }
 
-inline void pidgen_cb(pg_cb cb,void *hint1,void *hint2) {
+inline void pidgen_cb(pg_cb cb,void *hint1,void *hint2, void *p) {
 	DIR *pr;
 
 	if ((pr=opendir("/proc"))) {
@@ -135,9 +75,10 @@ inline void pidgen_cb(pg_cb cb,void *hint1,void *hint2) {
 			if (*eol!='\0')
 				continue;
 			snprintf(path,sizeof path,"/proc/%d/task",pid);
+			cb(pid,pid,hint1,hint2,p);
 			if ((tr=opendir(path))) {
 				struct dirent *tde=readdir(tr);
-
+				
 				for (;tde;tde=readdir(tr)) {
 					pid_t tid;
 
@@ -145,13 +86,12 @@ inline void pidgen_cb(pg_cb cb,void *hint1,void *hint2) {
 					tid=strtol(tde->d_name,&eol,10);
 					if (*eol!='\0')
 						continue;
-					havt=1;
-					cb(pid,tid,hint1,hint2);
+					
+					if(pid != tid)
+						cb(pid,tid,hint1,hint2,p);
 				}
 				closedir(tr);
 			}
-			if (!havt)
-				cb(pid,pid,hint1,hint2);
 		}
 		closedir(pr);
 	}

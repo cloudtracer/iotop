@@ -36,6 +36,7 @@ view_loop v_loop_cb=view_curses_loop;
 inline void init_params(void) {
 	params.iter=-1;
 	params.delay=1;
+	params.samplerate=1000;
 	params.pid=-1;
 	params.user_id=-1;
 }
@@ -60,6 +61,7 @@ static inline void print_help(void) {
 		"  -b, --batch           non-interactive mode\n"
 		"  -n NUM, --iter=NUM    number of iterations before ending [infinite]\n"
 		"  -d SEC, --delay=SEC   delay between iterations [1 second]\n"
+		"  -s MS,                sampling rate to look for pids [1000 ms]\n"
 		"  -p PID, --pid=PID     processes/threads to monitor [all]\n"
 		"  -u USER, --user=USER  users to monitor [all]\n"
 		"  -P, --processes       only show processes, not all threads\n"
@@ -96,6 +98,7 @@ static inline void parse_args(int argc,char *argv[]) {
 			{"only",no_argument,NULL,'o'},
 			{"iter",required_argument,NULL,'n'},
 			{"delay",required_argument,NULL,'d'},
+			{"samplerate",required_argument,NULL,'s'},
 			{"pid",required_argument,NULL,'p'},
 			{"user",required_argument,NULL,'u'},
 			{"processes",no_argument,NULL,'P'},
@@ -117,7 +120,7 @@ static inline void parse_args(int argc,char *argv[]) {
 			{NULL,0,NULL,0}
 		};
 
-		int c=getopt_long(argc,argv,"vhbon:d:p:u:Paktqc123456789x",long_options,NULL);
+		int c=getopt_long(argc,argv,"vhbon:s:d:p:u:Paktqc123456789x",long_options,NULL);
 
 		if (c==-1) {
 			if (optind<argc) {
@@ -154,6 +157,9 @@ static inline void parse_args(int argc,char *argv[]) {
 				break;
 			case 'd':
 				params.delay=atoi(optarg);
+				break;
+			case 's':
+				params.samplerate=atoi(optarg);
 				break;
 			case 'p':
 				params.pid=atoi(optarg);

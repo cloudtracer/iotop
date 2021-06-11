@@ -43,6 +43,7 @@ Options
 -b, --batch           non-interactive mode
 -n NUM, --iter=NUM    number of iterations before ending [infinite]
 -d SEC, --delay=SEC   delay between iterations [1 second]
+-m SEC, --metric=SEC  metric delay between captures [1 second]
 -p PID, --pid=PID     processes/threads to monitor [all]
 -u USER, --user=USER  users to monitor [all]
 -P, --processes       only show processes, not all threads

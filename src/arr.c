@@ -143,6 +143,7 @@ inline struct xxxid_stats *arr_find(struct xxxid_stats_arr *pa,pid_t tid) {
 static inline void _arr_free(struct xxxid_stats_arr *pa,int freeitem) {
 	if (!pa)
 		return;
+	
 	if (pa->arr) {
 		if (freeitem) {
 			int i;
